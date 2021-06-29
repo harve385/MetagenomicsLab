@@ -91,7 +91,7 @@ qiime tools export \
 
 __Exercise 2:__ From the OTU summary, look at how many OTUs correspond to each sample (“counts/sample detail”). Do technical replicates agree with one another? At this stage, what conclusions can you draw about the number of OTUs in these samples?
 
-
+In some cases the technical replicates agree with one another but in other samples there is a larger difference between replicates.
 
 
 
