@@ -1,0 +1,97 @@
+---
+title: "Metagenomics"
+author: "Allison Harvey"
+date: "6/29/2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+Activate qiime2
+```{bash}
+conda activate qiime2-2021.4
+source tab-qiime
+```
+
+
+Determine number of sequences present for each barcode
+```{bash}
+
+grep ">" ~/MetagenomicsLab/input/Data/RiceSeqs.fna | cut -d " " -f 4 | sort | uniq -c
+```
+
+__Exercise 1:__ Using information in the RiceMappingFile.txt and RiceSeqs.fna answer the following questions. Are the number of sequences for each sample approximately the same or are there any outliers? If so, which samples do they belong to? Could a different number of sequences per sample affect future analysis? Explain your reasoning.
+
+Most are fairly similar but there are some samples that have a much higher or lower number of sequences than the others. Different numbers of sequences per sample could bias results towards certain samples in future analysis since outliers may appear more or less diverse due solely to the number of sequences present.
+
+Low: 289 new_bc=AGCAGTCGCGATGT
+High: 4880 new_bc=ACGGTGAGTGTCGT, 3870 new_bc=ACCGCAGAGTCAGT, 3092 new_bc=ACAGACCACTCAGT, 2965 new_bc=AACGCACGCTAGGT
+
+
+
+Import data into qiime2 (run in terminal in input directory)
+```{bash eval=FALSE}
+qiime tools import \
+  --input-path Data/RiceSeqs.fna \
+  --output-path Data/RiceSeqs.qza \
+  --type 'SampleData[Sequences]'
+```
+
+Dereplicate the sequences (run in terminal in input directory)
+```{bash eval=FALSE}
+qiime vsearch dereplicate-sequences \
+  --i-sequences Data/RiceSeqs.qza \
+  --o-dereplicated-table Data/RiceTable.qza \
+  --o-dereplicated-sequences Data/RiceRep-seqs.qza
+```
+
+Cluster Microbiome sequences into OTUs (run in terminal in input directory)
+  Cluster similar sequences
+```{bash eval=FALSE}
+qiime vsearch cluster-features-de-novo \
+  --i-table Data/RiceTable.qza \
+  --i-sequences Data/RiceRep-seqs.qza \
+  --p-perc-identity 0.99 \
+  --o-clustered-table Data/RiceTable-dn-99.qza \
+  --o-clustered-sequences Data/RiceRep-seqs-dn-99.qza
+```
+  Match OTUs to reference database to assign taxonomy (5hrs) (run in terminal in input directory)
+```{bash eval=FALSE}
+time qiime feature-classifier classify-consensus-vsearch \
+  --i-query Data/RiceRep-seqs-dn-99.qza \
+  --i-reference-reads silva-138-99-seqs.qza \
+  --i-reference-taxonomy silva-138-99-tax.qza \
+  --p-threads 2 \
+  --o-classification Data/RiceTaxTable.qza
+```
+  Export data in form that can be read by R phyloseq (run in terminal in input directory)
+```{bash eval=FALSE}
+#table of otus
+qiime tools export \
+  --input-path Data/RiceTable-dn-97.qza \
+  --output-path qiime_export
+  
+#convert otus to text format
+biom convert -i qiime_export/feature-table.biom -o qiime_export/otu_table.txt --to-tsv
+
+# table of taxonomy
+qiime tools export \
+  --input-path Data/RiceTaxTable.qza \
+  --output-path qiime_export
+
+# sequences
+qiime tools export \
+  --input-path Data/RiceRep-seqs-dn-97.qza \
+  --output-path qiime_export
+  
+
+```
+  
+
+__Exercise 2:__ From the OTU summary, look at how many OTUs correspond to each sample (“counts/sample detail”). Do technical replicates agree with one another? At this stage, what conclusions can you draw about the number of OTUs in these samples?
+
+
+
+
+
