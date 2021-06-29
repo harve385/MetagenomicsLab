@@ -6,7 +6,16 @@ output: html_document
 ---
 
 ```{r}
+#install needed packages
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("phyloseq")
+```
+
+```{r}
 library(tidyverse)
+library(phyloseq)
 ```
 Activate qiime2
 ```{bash}
@@ -91,7 +100,110 @@ qiime tools export \
 
 __Exercise 2:__ From the OTU summary, look at how many OTUs correspond to each sample (“counts/sample detail”). Do technical replicates agree with one another? At this stage, what conclusions can you draw about the number of OTUs in these samples?
 
-In some cases the technical replicates agree with one another but in other samples there is a larger difference between replicates.
+In some cases the technical replicates agree with one another but in other samples there is a larger difference between replicates. I'm not sure if we can make any conclusions based on this.
 
 
+Import OTU table into R
+```{r}
+otu <- read.delim("../input/qiime_export/otu_table.txt", skip=1, row.names = 1, as.is = TRUE) %>% as.matrix()
+head(otu)
+```
+```{r}
+tax <- read.delim("../input/qiime_export/taxonomy.tsv", as.is = TRUE) %>%
+  select(-Consensus) %>%
+  mutate(Taxon = str_remove_all(Taxon, ".__| ")) %>%
+  separate(Taxon, into = c("domain", "phylum", "class", "order", "family", "genus", "species"), sep = ";", fill="right")
+rownames(tax) <- tax$Feature.ID
+tax <- tax %>% select(-Feature.ID) %>% as.matrix()
+tax[tax==""] <- NA
+head(tax)
+```
+
+```{r}
+#Create data frame of sample info
+sampleinfo <- data.frame(sample=colnames(otu)) %>%
+  mutate(cultivar=str_sub(sample,1,1),
+         cultivar={str_replace(cultivar, "M", "M104") %>%
+             str_replace( "I", "IR50") %>%
+             str_replace( "N", "Nipponbarre")},
+         time=str_extract(sample,"E|L"),
+         location={str_extract(sample,".[12]") %>% str_sub(1,1)},
+         location={str_replace(location, "B", "rhizoplane") %>%
+             str_replace("M", "rhizosphere") %>%
+             str_replace("E", "endosphere")})
+rownames(sampleinfo) <- sampleinfo$sample
+sampleinfo <- sampleinfo %>% select(-sample)
+head(sampleinfo)
+```
+
+```{r}
+#merge OTU and taxonomy info into new phyloseq object
+rice.ps <- phyloseq(otu_table(otu,taxa_are_rows=TRUE), tax_table(tax), sample_data(sampleinfo))
+rice.ps
+```
+
+```{r}
+#Filter to remove rare sequences
+rice.ps.small <- filter_taxa(rice.ps, function(x) sum(x > 1) > 2, TRUE) #require greater than one observation in more than two samples
+rice.ps.small
+```
+
+```{r}
+plot_heatmap(rice.ps.small)
+```
+
+__Exercise 3:__ Although, the resolution of the y-axis makes it difficult to read each OTU, it is still a valuable preliminary visualization. What types of information can you gain from this heat map? Are there any trends present at this stage with respect to the various samples?
+
+The samples appear to fall into two broad groups with one group represented by the samples in  the middle having abundant reads in the OTUs at the center of the axis, and generally containing reads from  a greater number of OTUs that the other samples which primarily contian OTUs from the top and bottom of the axis.
+
+
+```{r}
+#make bar plot. color by phylum.
+plot_bar(rice.ps.small, fill="phylum")
+```
+```{r}
+#repeat removing black lines
+pl <- plot_bar(rice.ps.small, fill="phylum")
+pl + geom_col(aes(fill=phylum, color=phylum))
+```
+
+
+__Exercise 4:__
+
+a. Make a bar plot with samples grouped by location. When comparing by location, which groups are the predominant phyla in the different samples? Are there any predominant groups unique to particular sample treatments?
+
+Proteobacteria appears to be the predominant phyla in all samples. Actinobacteria seems to be present at a higher abundance in samples in the endosphere and rhizosphere. 
+
+```{r}
+pl2 <- plot_bar(rice.ps.small, fill="phylum", facet_grid = ~location)
+pl2 + geom_col(aes(fill=phylum, color=phylum))
+```
+
+
+b. Make a bar plot with samples grouped by cultivar. When comparing by cultivar, are the predominant phyla consistent with those observed in Part A? Are there any predominant phyla unique to a specific cultivar? What does this indicate to you about the effect of the genotype and/or the effect of the treatment?
+
+The same phylums are consistent with those in part A. There don't appear to be any predominant phyla unique to a specific cultivar suggesting that treatment has a greater effect than genotype on microbial communitites.
+
+```{r}
+pl2 <- plot_bar(rice.ps.small, fill="phylum", facet_grid = ~cultivar)
+pl2 + geom_col(aes(fill=phylum, color=phylum))
+```
+
+
+Determine the diversity within a sample
+```{r}
+plot_richness(rice.ps, measures=c("Observed", "Chao1", "Shannon"))
+```
+
+__Exercise 5:__
+Is there an alpha diversity metric that estimates the sample diversity differently than the other metrics? If so, which one is it?
+
+Shannon diversity estimates the sample diversity differently than the others. A greater number of samples are reported as having higher diversity.
+
+__Exercise 6:__
+Look at the help file for plot_richness and plot the samples grouped either by cultivar or location. Do either of these categories seem to affect species diversity? Thinking back to the difference in read counts per sample, could the differences in diversity just be due to differences in sequencing depth?
+
+```{r}
+plot_richness(rice.ps, measures=c("Observed", "Chao1", "Shannon"))
+```
 
