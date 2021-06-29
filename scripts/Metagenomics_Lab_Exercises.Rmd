@@ -185,8 +185,8 @@ b. Make a bar plot with samples grouped by cultivar. When comparing by cultivar,
 The same phylums are consistent with those in part A. There don't appear to be any predominant phyla unique to a specific cultivar suggesting that treatment has a greater effect than genotype on microbial communitites.
 
 ```{r}
-pl2 <- plot_bar(rice.ps.small, fill="phylum", facet_grid = ~cultivar)
-pl2 + geom_col(aes(fill=phylum, color=phylum))
+pl3 <- plot_bar(rice.ps.small, fill="phylum", facet_grid = ~cultivar)
+pl3 + geom_col(aes(fill=phylum, color=phylum))
 ```
 
 
@@ -201,9 +201,45 @@ Is there an alpha diversity metric that estimates the sample diversity different
 Shannon diversity estimates the sample diversity differently than the others. A greater number of samples are reported as having higher diversity.
 
 __Exercise 6:__
-Look at the help file for plot_richness and plot the samples grouped either by cultivar or location. Do either of these categories seem to affect species diversity? Thinking back to the difference in read counts per sample, could the differences in diversity just be due to differences in sequencing depth?
+Look at the help file for `plot_richness` and plot the samples grouped either by cultivar or location. Do either of these categories seem to affect species diversity? Thinking back to the difference in read counts per sample, could the differences in diversity just be due to differences in sequencing depth?
+
+Location affects species diversity with greater diversity in rhizpsphere samples. In some genotypes this could ge due to greater sequenceing depth. Diversity is not a strongly influenced by cultivar.
 
 ```{r}
-plot_richness(rice.ps, measures=c("Observed", "Chao1", "Shannon"))
+plot_richness(rice.ps, x = "location", measures=c("Observed", "Chao1", "Shannon"))
+plot_richness(rice.ps, x = "cultivar", measures=c("Observed", "Chao1", "Shannon"))
+```
+
+
+Visualize diversity between samples
+```{r}
+#computed distances and MDS coordinates
+rice.ord.small <- ordinate(rice.ps.small, method="NMDS", distance="bray")
+```
+
+```{r}
+pl4 = plot_ordination(rice.ps.small, rice.ord.small, type="samples", color="cultivar", shape="location") 
+pl4 + geom_point(size=4)
+```
+
+__Exercise 7:__
+
+a. Does cultivar or location appear to have more of an influence on the clustering?
+
+location appears to more strongly influence clustering.
+
+b. Which two locations are more similar to one another? Does that make biological sense?
+
+the rhizpsplane and endosphere appear most similar which makes sense as these are physically the closest to each other.
+
+__Exercise 8:__
+
+Four Nipponbarre samples form a distinct group separated from all other samples. Replot the data (changing the plot aesthetics) to provide an explanation.
+
+Early timepoint samples of Nipponbarre in the rhizoplane and endosphere separate from other samples with like locations, but late timepoint samples group with the expected location groups.
+
+```{r}
+pl4 = plot_ordination(rice.ps.small, rice.ord.small, type="samples", color="cultivar", shape="location", label = "time") 
+pl4 + geom_point(size=2)
 ```
 
